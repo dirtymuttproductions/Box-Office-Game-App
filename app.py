@@ -25,7 +25,8 @@ def load_data():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     
     # --- OPTION A: LOCAL FILE (Use this if testing on PC) ---
-    creds = ServiceAccountCredentials.from_json_keyfile_name('steve_creds.json', scope)
+    key_dict = st.secrets["gcp_service_account"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     
     # --- OPTION B: STREAMLIT CLOUD (Uncomment this when deploying!) ---
     # key_dict = st.secrets["gcp_service_account"]
@@ -106,3 +107,4 @@ try:
 except Exception as e:
     st.error("Steve is having trouble reading the score. (Data Error)")
     st.write(e)
+
