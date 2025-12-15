@@ -11,7 +11,6 @@ st.set_page_config(page_title="Box Office League", page_icon="🎬", layout="cen
 st.markdown("""
 <style>
     .big-font { font-size:24px !important; font-weight: bold; }
-    .stProgress > div > div > div > div { background-color: #00cc00; }
     .streamlit-expanderHeader { font-size: 18px; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
@@ -57,22 +56,20 @@ try:
     
     st.divider()
 
-    # --- NEW VISUAL: SIMPLE BAR CHART ---
+    # --- VISUAL: SIMPLE BAR CHART ---
     st.subheader("📊 The Race")
     
-    # Create a clean horizontal bar chart
     chart = alt.Chart(df_players).mark_bar().encode(
         x=alt.X('Net_worth', title='Net Worth ($M)'),
-        y=alt.Y('Player_Name', sort='-x', title=""), # Sort by value, hide axis title
+        y=alt.Y('Player_Name', sort='-x', title=""), 
         color=alt.Color('Net_worth', scale=alt.Scale(scheme='greens'), legend=None),
         tooltip=['Player_Name', 'Net_worth', 'Remaining_Points']
-    ).properties(height=300) # Fixed height
+    ).properties(height=300)
     
-    # Add text labels to the bars for readability
     text = chart.mark_text(
         align='left',
         baseline='middle',
-        dx=3  # Nudges text to right so it doesn't overlap bar
+        dx=3 
     ).encode(
         text=alt.Text('Net_worth', format=",.0f")
     )
@@ -89,9 +86,9 @@ try:
         
         with st.expander(f"#{real_rank} {name}  —  ${net_worth:,.1f}M"):
             
-            # Stats Row
+            # Stats Row (UPDATED: "Cash" -> "Points")
             c1, c2 = st.columns(2)
-            c1.write(f"💰 Cash: **{player['Remaining_Points']}**")
+            c1.write(f"💰 Points Available: **{player['Remaining_Points']}**")
             c2.write(f"🎞️ Films: **{player['Films_Owned']}**")
             
             st.write("---")
@@ -104,11 +101,17 @@ try:
                     f1, f2 = st.columns([3, 1])
                     with f1:
                         st.write(f"**{film['Title']}**")
+                        
+                        # UPDATED: Star Rating Visual instead of Progress Bar
                         try:
                             score = float(film['Actual_LBS_Score'])
-                            st.progress(score / 5.0)
+                            # Create star string (e.g. 3.6 -> ★★★★☆)
+                            full_stars = int(round(score))
+                            star_str = "★" * full_stars + "☆" * (5 - full_stars)
+                            st.caption(f"{film['Genre']} | {star_str} ({score})")
                         except:
-                            pass
+                            st.caption(f"{film['Genre']} | LBS: TBD")
+                            
                     with f2:
                         st.write(f"**${film['Current_Total_Gross']:.0f}M**")
             else:
