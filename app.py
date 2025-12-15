@@ -57,32 +57,27 @@ try:
     
     st.divider()
 
-    # --- NEW VISUAL: STRATEGY MAP ---
-    st.subheader("🗺️ Strategy Map")
-    st.caption("Net Worth (Vertical) vs. Cash Remaining (Horizontal)")
-
-    # Base Chart
-    base = alt.Chart(df_players).encode(
-        x=alt.X('Remaining_Points', title='Cash Left (pts)'),
-        y=alt.Y('Net_worth', title='Net Worth ($M)', scale=alt.Scale(zero=False)),
-        tooltip=['Player_Name', 'Net_worth', 'Remaining_Points', 'Films_Owned']
+    # --- NEW VISUAL: SIMPLE BAR CHART ---
+    st.subheader("📊 The Race")
+    
+    # Create a clean horizontal bar chart
+    chart = alt.Chart(df_players).mark_bar().encode(
+        x=alt.X('Net_worth', title='Net Worth ($M)'),
+        y=alt.Y('Player_Name', sort='-x', title=""), # Sort by value, hide axis title
+        color=alt.Color('Net_worth', scale=alt.Scale(scheme='greens'), legend=None),
+        tooltip=['Player_Name', 'Net_worth', 'Remaining_Points']
+    ).properties(height=300) # Fixed height
+    
+    # Add text labels to the bars for readability
+    text = chart.mark_text(
+        align='left',
+        baseline='middle',
+        dx=3  # Nudges text to right so it doesn't overlap bar
+    ).encode(
+        text=alt.Text('Net_worth', format=",.0f")
     )
-
-    # The Dots
-    points = base.mark_circle(size=200, opacity=1).encode(
-        color=alt.Color('Player_Name', legend=None),
-        size=alt.Size('Films_Owned', legend=None, scale=alt.Scale(range=[100, 500])) # Bigger dots = more films
-    )
-
-    # The Names (Labels)
-    text = base.mark_text(align='center', baseline='bottom', dy=-15).encode(
-        text='Player_Name',
-        color=alt.value('black')
-    )
-
-    # Combine
-    chart = (points + text).interactive().properties(height=350)
-    st.altair_chart(chart, use_container_width=True)
+    
+    st.altair_chart(chart + text, use_container_width=True)
 
     # --- LEADERBOARD ---
     st.subheader("🏆 Standings")
