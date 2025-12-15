@@ -22,7 +22,8 @@ st.markdown("""
 def load_data():
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     # Ensure 'steve_creds.json' matches your actual credential filename
-    creds = ServiceAccountCredentials.from_json_keyfile_name('steve_creds.json', scope)
+    key_dict = st.secrets["gcp_service_account"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
     client = gspread.authorize(creds)
     
     # Open your spreadsheet
@@ -92,4 +93,5 @@ try:
 
 except Exception as e:
     st.error("Steve is on coffee break. (Connection Error)")
+
     st.write(e)
