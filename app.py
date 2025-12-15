@@ -5,10 +5,9 @@ from oauth2client.service_account import ServiceAccountCredentials
 import altair as alt
 
 # --- SETUP ---
-# Page configuration for mobile-friendly view
 st.set_page_config(page_title="Box Office League", page_icon="🎬", layout="centered")
 
-# Custom CSS to make it look like a native app
+# Custom CSS
 st.markdown("""
 <style>
     .big-font { font-size:20px !important; font-weight: bold; }
@@ -17,65 +16,79 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- GOOGLE SHEETS CONNECTION ---
-# Uses the same "GOOGLE_CREDS" json file your bot uses
-@st.cache_data(ttl=600) # Cache data for 10 minutes to save API quotas
+@st.cache_data(ttl=600)
 def load_data():
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    # Ensure 'steve_creds.json' matches your actual credential filename
-    key_dict = st.secrets["gcp_service_account"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
-    client = gspread.authorize(creds)
+    # 1. SETUP CREDENTIALS
+    # If you are running locally, use the file. 
+    # If on Streamlit Cloud, use st.secrets logic (commented out below)
     
-    # Open your spreadsheet
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    
+    # --- OPTION A: LOCAL FILE (Use this if testing on PC) ---
+    creds = ServiceAccountCredentials.from_json_keyfile_name('steve_creds.json', scope)
+    
+    # --- OPTION B: STREAMLIT CLOUD (Uncomment this when deploying!) ---
+    # key_dict = st.secrets["gcp_service_account"]
+    # creds = ServiceAccountCredentials.from_json_keyfile_dict(key_dict, scope)
+    
+    client = gspread.authorize(creds)
     sheet = client.open_by_key("1t43oLbdIDxdnANi_KiDd5doZUquvULt82Jshtgstrf4")
     
-    # Fetch specific worksheets
-    standings_data = sheet.worksheet("Standings").get_all_records()
+    # 2. FETCH DATA
+    # We switch to 'Players' because 'Standings' has empty zeros
+    players_data = sheet.worksheet("Players").get_all_records()
     films_data = sheet.worksheet("Purchased_Films").get_all_records()
     
-    return pd.DataFrame(standings_data), pd.DataFrame(films_data)
+    return pd.DataFrame(players_data), pd.DataFrame(films_data)
 
 try:
-    df_standings, df_films = load_data()
+    df_players, df_films = load_data()
 
-    # --- PROCESSING DATA ---
-    # Ensure numbers are floats for sorting
-    df_standings['Total_Net_Worth_Million'] = pd.to_numeric(df_standings['Total_Net_Worth_Million'], errors='coerce').fillna(0)
-    df_standings = df_standings.sort_values('Total_Net_Worth_Million', ascending=False)
+    # --- CLEAN DATA ---
+    # Ensure numbers are numeric
+    df_players['Net_worth'] = pd.to_numeric(df_players['Net_worth'], errors='coerce').fillna(0)
+    df_players['Total_Money_Million'] = pd.to_numeric(df_players['Total_Money_Million'], errors='coerce').fillna(0)
+    
+    # Sort by Net Worth (High to Low)
+    df_players = df_players.sort_values('Net_worth', ascending=False).reset_index(drop=True)
     
     # Get the Leader
-    leader = df_standings.iloc[0]
+    leader = df_players.iloc[0]
 
     # --- TAB 1: THE DASHBOARD ---
     st.title("🎬 Box Office Game")
     
-    # The "Victor" Banner
+    # Victor Banner
     st.markdown("### 👑 Season Leader")
     col1, col2 = st.columns([1, 2])
     with col1:
-        # Generates a fun avatar based on the player's name
         st.image(f"https://api.dicebear.com/7.x/adventurer/svg?seed={leader['Player_Name']}", width=100)
     with col2:
         st.subheader(leader['Player_Name'])
-        st.metric("Net Worth", f"${leader['Total_Net_Worth_Million']:,.1f}M")
+        st.metric("Net Worth", f"${leader['Net_worth']:,.1f}M")
         st.caption(f"Films Owned: {leader['Films_Owned']}")
 
     st.divider()
 
     # The Chart
     st.subheader("📈 The Race")
-    chart = alt.Chart(df_standings).mark_bar().encode(
-        x=alt.X('Total_Net_Worth_Million', title='Net Worth ($M)'),
+    chart = alt.Chart(df_players).mark_bar().encode(
+        x=alt.X('Net_worth', title='Net Worth ($M)'),
         y=alt.Y('Player_Name', sort='-x', title=None),
-        color=alt.Color('Total_Net_Worth_Million', scale=alt.Scale(scheme='greens')),
-        tooltip=['Player_Name', 'Total_Net_Worth_Million', 'Liquid_Cash_Million']
+        color=alt.Color('Net_worth', scale=alt.Scale(scheme='greens')),
+        tooltip=[
+            alt.Tooltip('Player_Name', title='Player'),
+            alt.Tooltip('Net_worth', title='Net Worth ($M)'),
+            alt.Tooltip('Total_Money_Million', title='Box Office ($M)'),
+            alt.Tooltip('Remaining_Points', title='Points Left')
+        ]
     ).properties(height=300)
     st.altair_chart(chart, use_container_width=True)
 
     # --- TAB 2: FILM GALLERY ---
     st.subheader("🎥 Film Performance")
     
-    # Filter for owned films only and sort by Gross
+    # Filter for owned films
     df_films['Current_Total_Gross'] = pd.to_numeric(df_films['Current_Total_Gross'], errors='coerce').fillna(0)
     owned_films = df_films[df_films['Owner'] != ""].sort_values("Current_Total_Gross", ascending=False)
 
@@ -84,7 +97,6 @@ try:
             st.write(f"**Owner:** {row['Owner']}")
             st.write(f"**Genre:** {row['Genre']}")
             st.write(f"**LBS Score:** {row['Actual_LBS_Score']}")
-            # Visual progress bar for LBS score (out of 5)
             try:
                 score = float(row['Actual_LBS_Score'])
                 st.progress(score / 5.0)
@@ -92,6 +104,5 @@ try:
                 pass
 
 except Exception as e:
-    st.error("Steve is on coffee break. (Connection Error)")
-
+    st.error("Steve is having trouble reading the score. (Data Error)")
     st.write(e)
